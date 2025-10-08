@@ -91,11 +91,35 @@
     /* Content */
     main.content{margin-top:0}
     .events-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:1rem}
-    .card{background:linear-gradient(180deg,var(--card), rgba(255,255,255,0.02));padding:0.9rem;border-radius:12px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 8px 24px rgba(2,6,23,0.6);color:#fff}
+    .card{
+      background:linear-gradient(180deg,var(--card), rgba(255,255,255,0.02));
+      padding:0.9rem;border-radius:12px;border:1px solid rgba(255,255,255,0.03);
+      box-shadow:0 8px 24px rgba(2,6,23,0.6);color:#fff;
+      transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+      position:relative;
+    }
+    /* hover effect */
+    .card:hover{
+      transform: translateY(-8px);
+      box-shadow: 0 24px 50px rgba(2,6,23,0.75);
+      border-color: rgba(255,255,255,0.06);
+      cursor: pointer;
+    }
+
     .card h3{margin:0 0 .4rem 0;font-size:1rem}
     .meta{font-size:0.82rem;color:var(--muted);margin-bottom:.5rem}
     .desc{font-size:0.92rem;color:rgba(255,255,255,0.9)}
     .empty{padding:2.2rem;border-radius:12px;text-align:center;color:var(--muted);background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.02)}
+
+    /* Action area shown after click */
+    .card .actions-area{margin-top:.6rem;display:flex;justify-content:flex-end;gap:.5rem}
+    .register-btn{
+      background:transparent;border:1px solid rgba(255,255,255,0.08);padding:.4rem .6rem;border-radius:8px;color:var(--muted);cursor:pointer;font-weight:700;
+    }
+    .register-btn.primary{
+      background:linear-gradient(90deg,var(--accent), #34d399);color:#042;border:none;
+    }
+    .small-msg{font-size:0.82rem;color:var(--muted);margin-top:.4rem;text-align:left}
 
     /* Modal */
     .modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,0.6);z-index:60}
@@ -107,6 +131,14 @@
     .modal-footer{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.6rem}
     .btn-ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);padding:.45rem .7rem;border-radius:8px;color:var(--muted);cursor:pointer}
 
+    /* QR modal */
+    .qr-modal-backdrop{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(2,6,23,0.6);z-index:70}
+    .qr-modal-backdrop.show{display:flex}
+    .qr-modal{width:100%;max-width:340px;padding:1rem;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03);box-shadow:0 10px 40px rgba(2,6,23,0.7);text-align:center;color:#fff}
+    .qr-modal img.qr-image{width:220px;height:220px;object-fit:contain;background:#fff;padding:8px;border-radius:8px;display:block;margin:0 auto 0.6rem}
+    .qr-modal .ticket-code{font-family:monospace;padding:.35rem .6rem;border-radius:8px;background:rgba(255,255,255,0.03);display:inline-block;margin-bottom:.6rem;color:var(--muted)}
+    .qr-modal .close-qr{margin-top:.5rem;padding:.45rem .7rem;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:var(--muted);cursor:pointer}
+
     /* small screens */
     @media (max-width:520px){
       .header{padding:.5rem .75rem}
@@ -114,6 +146,7 @@
       .username{display:none}
       .btn-create{padding:.45rem .7rem}
       .events-grid{grid-template-columns:1fr}
+      .qr-modal img.qr-image{width:170px;height:170px}
     }
   </style>
 </head>
@@ -129,13 +162,11 @@
       </div>
 
       <div class="actions">
-        <!-- Create button stays in DOM but will be hidden for anonymous users -->
         <button class="btn-create" id="open-create" aria-haspopup="dialog">
           <span class="plus">＋</span>
           <span>Create Event</span>
         </button>
 
-        <!-- Auth area: either user info (when logged in) or login/signup buttons -->
         <div class="auth-actions" id="auth-actions" style="display:none">
           <button class="btn-login" id="btn-login">Log in</button>
           <button class="btn-signup" id="btn-signup">Sign up</button>
@@ -179,10 +210,22 @@
         </div>
       </div>
     </div>
+
+    <!-- Static QR modal (hidden until used) -->
+    <div class="qr-modal-backdrop" id="qrModal" aria-hidden="true">
+      <div class="qr-modal" role="dialog" aria-modal="true" aria-label="Your ticket">
+        <h3 style="margin-top:0;margin-bottom:.5rem;color:#fff">Your ticket</h3>
+        <img id="qrImage" class="qr-image" src="" alt="QR code" />
+        <div id="ticketCode" class="ticket-code"></div>
+        <div><button id="closeQrBtn" class="close-qr" type="button">Close</button></div>
+      </div>
+    </div>
   </div>
 
   <script>
-    serverUrl = ""
+    // Set your server base URL if needed, e.g. "https://api.example.com"
+    const serverUrl = "";
+
     const open = document.getElementById('open-create');
     const modal = document.getElementById('modal');
     const close = document.getElementById('close');
@@ -195,6 +238,11 @@
     const btnLogin = document.getElementById('btn-login');
     const btnSignup = document.getElementById('btn-signup');
     const btnLogout = document.getElementById('btn-logout');
+
+    const qrModal = document.getElementById('qrModal');
+    const qrImage = document.getElementById('qrImage');
+    const ticketCodeEl = document.getElementById('ticketCode');
+    const closeQrBtn = document.getElementById('closeQrBtn');
 
     function showModal(){
       document.getElementById('title').value = '';
@@ -210,26 +258,125 @@
     modal.addEventListener('click', (e)=>{ if(e.target === modal) hideModal(); });
     document.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') hideModal(); });
 
+    // show/hide QR modal
+    function showQRModal(qrDataURL, ticketCode){
+      qrImage.src = qrDataURL || '';
+      qrImage.alt = ticketCode ? ('QR code for ticket ' + ticketCode) : 'QR code';
+      ticketCodeEl.textContent = ticketCode || '';
+      qrModal.classList.add('show');
+      qrModal.setAttribute('aria-hidden', 'false');
+    }
+    function hideQRModal(){
+      qrModal.classList.remove('show');
+      qrModal.setAttribute('aria-hidden', 'true');
+      // clear for privacy
+      setTimeout(()=>{ qrImage.src = ''; ticketCodeEl.textContent = ''; }, 200);
+    }
+    closeQrBtn.addEventListener('click', hideQRModal);
+    qrModal.addEventListener('click', (e)=>{ if (e.target === qrModal) hideQRModal(); });
+
+    // create action area (register button) — replaced to show QR on success
+    function createActionArea(eventId){
+      const area = document.createElement('div');
+      area.className = 'actions-area';
+      area.innerHTML = `
+        <div>
+          <button class="register-btn primary" data-event="${eventId}" aria-label="Register">Register</button>
+        </div>
+      `;
+      area.addEventListener('click', (e)=> e.stopPropagation());
+
+      const regBtn = area.querySelector('.register-btn.primary');
+      regBtn.addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        const origText = btn.textContent;
+        btn.textContent = 'Registering…';
+        try{
+          const res = await fetch(serverUrl + '/event/RegisterEvent', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {'content-type': 'application/json'},
+            body: JSON.stringify({ eventId })
+          });
+          if (!res.ok){
+            const txt = await res.text().catch(()=> '');
+            alert('Registration failed: ' + (txt || res.status));
+            btn.disabled = false;
+            btn.textContent = origText;
+            return;
+          }
+
+          let data = {};
+          try { data = await res.json(); } catch(err) { data = {}; }
+
+          btn.textContent = 'Registered';
+          btn.classList.remove('primary');
+          btn.style.opacity = '0.9';
+
+          // if server returned a QR data URL, show it
+          if (data && data.qr){
+            showQRModal(data.qr, data.ticket_code || '');
+          } else if (data && data.ticket_code) {
+            // fallback: show ticket code in simple alert
+            alert('Ticket: ' + data.ticket_code);
+          } else {
+            // nothing returned — provide simple confirmation
+            alert('Registered successfully.');
+          }
+        }catch(err){
+          console.error('Register error', err);
+          alert('Network error while registering.');
+          btn.disabled = false;
+          btn.textContent = origText;
+        }
+      });
+      return area;
+    }
+
     function renderEvent(ev){
       const existingEmpty = document.getElementById('empty');
       if(existingEmpty) existingEmpty.remove();
 
       const card = document.createElement('article');
       card.className = 'card';
+      card.dataset.eventId = ev.id;
+
       const title = document.createElement('h3'); title.textContent = ev.title || 'Untitled';
       const meta = document.createElement('div'); meta.className = 'meta';
       const dt = ev.date ? new Date(ev.date) : null;
       meta.textContent = dt ? dt.toLocaleString('en-IN', {dateStyle:'medium', timeStyle:'short'}) : 'No date';
       const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = ev.desc || ev.description || '';
+
       card.appendChild(title);
       card.appendChild(meta);
       card.appendChild(desc);
+
+      card.addEventListener('click', (e) => {
+        // close other open actions
+        document.querySelectorAll('.card .actions-area').forEach(a => a.remove());
+
+        // toggle: if already has actions-area, clicking again will remove it
+        if (card.querySelector('.actions-area')) return;
+
+        const actionArea = createActionArea(ev.id);
+        card.appendChild(actionArea);
+      });
+
+      card.tabIndex = 0;
+      card.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          card.click();
+        }
+      });
+
       eventsEl.prepend(card);
     }
 
     async function loadEvents(){
       try{
-        const res = await fetch(serverUrl + '/event/getEvents',);
+        const res = await fetch(serverUrl + '/event/getEvents');
         if (!res.ok){
           console.warn('Failed to load events', res.status);
           return;
@@ -260,7 +407,7 @@
       }
     }
 
-    if (save) save.addEventListener('click', async ()=>{
+    if (save) save.addEventListener('click', async ()=>{ 
       const title = document.getElementById('title').value.trim();
       const date = document.getElementById('date').value;
       const desc = document.getElementById('desc').value.trim();
@@ -277,6 +424,7 @@
           alert('Could not save event.');
           return;
         }
+        // optimistic local render (server should return canonical event in real app)
         const ev = { id: Date.now(), title, date: date || null, desc };
         renderEvent(ev);
         hideModal();
@@ -319,7 +467,7 @@
     if (btnLogin) btnLogin.addEventListener('click', ()=> window.location.href = '/login');
     if (btnSignup) btnSignup.addEventListener('click', ()=> window.location.href = '/signup');
 
-    if (btnLogout) btnLogout.addEventListener('click', async ()=>{
+    if (btnLogout) btnLogout.addEventListener('click', async ()=> {
       try{
         const result = await fetch(serverUrl + '/auth/logout', {method: 'POST', credentials: 'include'});
         if(result.status == 200) {
@@ -330,6 +478,7 @@
       }
     });
 
+    // initial load
     checkAuth();
     loadEvents();
   </script>

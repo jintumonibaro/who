@@ -8,5 +8,11 @@ export const registrationRepo =
     {
         const result = await db.execute(`insert into registration (userId, eventId, ticket_code) values (?, ?, ?)`, [userId, eventId, ticket_code])
         return result[0].affectedRows
+    },
+
+    async getAllRegistrations()
+    {
+        const result = await db.execute(`select * from registration`)
+        return result[0]
     }
 }
