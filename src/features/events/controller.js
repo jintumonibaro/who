@@ -1,6 +1,6 @@
 import { eventRepo } from "./repo.js";
-
-
+import { registrationRepo } from "./registrationRepo.js";
+import { v4 as uuidV4 } from "uuid";
 
 export const postEvent = (req, res) =>
 {
@@ -27,4 +27,23 @@ export const getEvents = async (req, res) =>
 {
     const events = await eventRepo.getAllEvents()
     res.json(events)
+}
+
+export const postRegisterEvent = (req, res) =>
+{
+    const {eventId} = req.body
+    const userId = req.user.id;
+    const ticket_code = uuidV4()
+
+    if(!eventId || !userId) return res.status(400).send()
+    registrationRepo.addRegistration(userId, eventId, ticket_code)
+    res.status(200).send()
+}
+
+
+export const getEvent = (req, res) =>
+{
+    const {eventId} = req.body
+
+    res.status(200).send()
 }
