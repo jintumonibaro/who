@@ -41,7 +41,7 @@ export const postRegisterEvent = async (req, res) =>
     const event = registrations.find(registration => registration.eventId == eventId && registration.userId == userId)
     if(event) return res.status(409).send()
     registrationRepo.addRegistration(userId, eventId, ticket_code)
-    const qrDataURL = await QRCode.toDataURL(ticket_code);
+    const qrDataURL = await QRCode.toDataURL(`https://who-production.up.railway.app/event/verifyEvent?code=${ticket_code}&eventId=${eventId}`);
     console.log(qrDataURL)
     res.status(200).json({ ticket_code, qr: qrDataURL });
 }
@@ -52,4 +52,38 @@ export const getEvent = (req, res) =>
     const {eventId} = req.body
 
     res.status(200).send()
+}
+
+
+export const verifyEvent = async (req, res) =>
+{
+    const {code, eventId} = req.query;
+    const registrations = await registrationRepo.getAllRegistrations()
+    const registration = registrations.find(registration => registration.ticket_code == code)
+    if(registration.userId != req.user.id)
+    {
+            res.render('test', {
+        title: 'Ticket',
+        message: 'Your ticket is verified',
+        detail: 'Ticket belongs to another person',
+        variant: 'danger'
+        });
+    }else if(registration.eventId != eventId)
+    {
+            res.render('test', {
+        title: 'Ticket',
+        message: 'Your ticket is verified',
+        detail: 'Ticket belongs to another event',
+        variant: 'warning'
+        });
+    }
+    else
+    {
+        res.render('test', {
+        title: 'Ticket',
+        message: 'Your ticket is verified',
+        detail: 'success',
+        variant: 'success'
+        });
+    }
 }
